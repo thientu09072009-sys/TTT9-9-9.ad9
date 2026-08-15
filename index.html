@@ -1,244 +1,648 @@
-<!doctype html>
-<html lang="vi">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ADMIN — CHÚA TỂ SCT</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#100616;color:#fff;font-family:Arial,sans-serif}
-.wrap{max-width:680px;margin:auto;padding:15px}
-.card{background:#211027;border:1px solid #71305f;border-radius:14px;padding:14px;margin:10px 0}
-h1{color:#ffd34e;text-align:center}
-input,button{width:100%;padding:12px;margin:5px 0;border-radius:9px;border:0;font-size:15px}
-input{background:#120812;color:#fff;border:1px solid #714765}
-button{background:#63305e;color:#fff;font-weight:bold;cursor:pointer}
-button:hover{filter:brightness(1.2)}
-button:active{transform:translateY(1px)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.status{padding:9px;border-radius:8px;text-align:center;font-size:13px}
-.ok{background:#163d20;color:#9affaa}.err{background:#45151b;color:#ff9b9b}.info{background:#252035;color:#d9c8e1}
-.code{border-top:1px solid #44233e;padding:12px 0}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-.actions button{font-size:12px;padding:9px}
-.muted{color:#c7afc5;font-size:12px}
-#app{display:none}
-.eye{position:relative}
-.eye button{position:absolute;right:5px;top:5px;width:auto;padding:8px 10px;background:#39203d}
-@media(max-width:480px){.row,.actions{grid-template-columns:1fr}.wrap{padding:9px}}
-</style>
-</head>
-<body>
-<div class="wrap">
-<h1>🔐 ADMIN — CHÚA TỂ SCT</h1>
-
-<div id="loginCard" class="card">
-  <div id="serverStatus" class="status info">🔄 Đang kiểm tra server...</div>
-  <div class="eye">
-    <input id="pass" type="password" autocomplete="current-password" placeholder="Mật khẩu Admin">
-    <button type="button" onclick="togglePass()">👁️</button>
-  </div>
-  <button type="button" id="loginBtn" onclick="login()">🔑 ĐĂNG NHẬP</button>
-  <div id="loginMsg"></div>
-  <div class="muted">Có thể nhấn Enter trong ô mật khẩu để đăng nhập.</div>
-</div>
-
-<div id="app">
-  <div class="card">
-    <div class="status ok">✅ Đã đăng nhập Admin</div>
-    <button type="button" onclick="logout()">ĐĂNG XUẤT</button>
-  </div>
-
-  <div class="card">
-    <h3>➕ Tạo code điểm ảo</h3>
-    <input id="code" placeholder="Ví dụ: TTT100K">
-    <input id="reward" type="number" min="1" placeholder="Số điểm thưởng">
-    <input id="maxUses" type="number" min="0" value="0" placeholder="Lượt tối đa (0 = không giới hạn)">
-    <input id="expires" type="datetime-local">
-    <button type="button" onclick="createCode()">➕ TẠO CODE</button>
-    <div id="createMsg"></div>
-  </div>
-
-  <div class="card">
-    <h3>📋 Quản lý code</h3>
-    <button type="button" onclick="loadCodes()">🔄 TẢI LẠI</button>
-    <div id="list"><div class="muted">Chưa tải danh sách.</div></div>
-  </div>
-</div>
-</div>
-
 <script>
-let adminPassword="";
+const API_URL = "https://ttt9-9-9-9.onrender.com";
 
-const $=id=>document.getElementById(id);
+let adminPassword = "";
 
-async function checkServer(){
-  try{
-    const r=await fetch("/api/health",{cache:"no-store"});
-    if(!r.ok) throw new Error();
-    $("serverStatus").className="status ok";
-    $("serverStatus").textContent="🟢 Server đang hoạt động";
-  }catch(e){
-    $("serverStatus").className="status err";
-    $("serverStatus").textContent="🔴 Không kết nối được server — hãy chạy npm start";
+const $ = id => document.getElementById(id);
+
+async function api(path, options = {}) {
+  const headers = {
+    ...(options.headers || {})
+  };
+
+  if (adminPassword) {
+    headers["x-admin-password"] = adminPassword;
+  }
+
+  return fetch(API_URL + path, {
+    ...options,
+    headers,
+    cache: "no-store"
+  });
+}
+
+
+// ============================
+// KIỂM TRA SERVER
+// ============================
+
+async function checkServer() {
+  const status = $("serverStatus");
+
+  status.className = "status info";
+  status.textContent = "🔄 Đang kiểm tra server...";
+
+  try {
+    const r = await api("/api/health");
+
+    if (!r.ok) {
+      throw new Error("Server trả lỗi");
+    }
+
+    const d = await r.json();
+
+    if (d.ok) {
+      status.className = "status ok";
+      status.textContent = "🟢 Server đang hoạt động";
+    } else {
+      throw new Error();
+    }
+
+  } catch (e) {
+    status.className = "status err";
+    status.textContent =
+      "🔴 Không kết nối được Server Render";
   }
 }
 
-function togglePass(){
-  $("pass").type=$("pass").type==="password"?"text":"password";
+
+// ============================
+// HIỆN / ẨN MẬT KHẨU
+// ============================
+
+function togglePass() {
+  $("pass").type =
+    $("pass").type === "password"
+      ? "text"
+      : "password";
 }
 
-$("pass").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
+
+// ============================
+// ENTER ĐỂ ĐĂNG NHẬP
+// ============================
+
+$("pass").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
     e.preventDefault();
     login();
   }
 });
 
-async function login(){
-  const p=$("pass").value.trim();
-  if(!p){
-    $("loginMsg").innerHTML='<div class="status err">❌ Vui lòng nhập mật khẩu.</div>';
-    return;
-  }
-  $("loginBtn").disabled=true;
-  $("loginBtn").textContent="⏳ Đang đăng nhập...";
-  try{
-    const r=await fetch("/api/codes",{headers:{"x-admin-password":p},cache:"no-store"});
-    if(!r.ok){
-      $("loginMsg").innerHTML='<div class="status err">❌ Mật khẩu sai hoặc server chưa chạy.</div>';
-      return;
-    }
-    adminPassword=p;
-    sessionStorage.setItem("sctAdminPassword",p);
-    $("loginCard").style.display="none";
-    $("app").style.display="block";
-    render(await r.json());
-  }catch(e){
-    $("loginMsg").innerHTML='<div class="status err">🔴 Không kết nối được server.</div>';
-  }finally{
-    $("loginBtn").disabled=false;
-    $("loginBtn").textContent="🔑 ĐĂNG NHẬP";
-  }
-}
 
-function logout(){
-  adminPassword="";
-  sessionStorage.removeItem("sctAdminPassword");
-  $("app").style.display="none";
-  $("loginCard").style.display="block";
-  $("pass").value="";
-}
+// ============================
+// ĐĂNG NHẬP ADMIN
+// ============================
 
-async function loadCodes(){
-  try{
-    const r=await fetch("/api/codes",{headers:{"x-admin-password":adminPassword},cache:"no-store"});
-    if(!r.ok){logout();return}
-    render(await r.json());
-  }catch(e){
-    $("list").innerHTML='<div class="status err">🔴 Không tải được dữ liệu.</div>';
-  }
-}
+async function login() {
 
-async function createCode(){
-  const code=$("code").value.trim();
-  const reward=Number($("reward").value);
-  const maxUses=Number($("maxUses").value||0);
-  const expires=$("expires").value?new Date($("expires").value).toISOString():null;
+  const p = $("pass").value.trim();
 
-  if(!code||reward<=0||maxUses<0){
-    $("createMsg").innerHTML='<div class="status err">❌ Kiểm tra lại thông tin code.</div>';
+  if (!p) {
+    $("loginMsg").innerHTML =
+      '<div class="status err">❌ Vui lòng nhập mật khẩu.</div>';
     return;
   }
 
-  try{
-    const r=await fetch("/api/codes",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-admin-password":adminPassword},
-      body:JSON.stringify({code,reward,maxUses,expiresAt:expires})
-    });
-    const d=await r.json();
-    if(!r.ok||!d.ok){
-      $("createMsg").innerHTML='<div class="status err">❌ '+(d.error||"Không tạo được code")+'</div>';
-      return;
-    }
-    $("createMsg").innerHTML='<div class="status ok">✅ Đã tạo code '+code.toUpperCase()+'</div>';
-    $("code").value="";$("reward").value="";$("maxUses").value="0";$("expires").value="";
-    loadCodes();
-  }catch(e){
-    $("createMsg").innerHTML='<div class="status err">🔴 Server không phản hồi.</div>';
-  }
-}
+  $("loginBtn").disabled = true;
+  $("loginBtn").textContent = "⏳ Đang đăng nhập...";
 
-function render(arr){
-  if(!arr.length){
-    $("list").innerHTML='<div class="muted">Chưa có code nào.</div>';
-    return;
-  }
-  $("list").innerHTML=arr.map(x=>{
-    const exp=x.expiresAt?new Date(x.expiresAt).toLocaleString("vi-VN"):"Không hết hạn";
-    return `<div class="code">
-      <b>🎁 ${escapeHtml(x.code)}</b><br>
-      💰 +${Number(x.reward).toLocaleString("vi-VN")} điểm<br>
-      🔢 ${x.usedCount}/${x.maxUses||"∞"} lượt<br>
-      📅 ${exp}<br>
-      <span class="muted">${x.active?"🟢 ĐANG BẬT":"🔴 ĐÃ TẮT"}</span>
-      <div class="actions">
-        <button onclick="toggleCode('${esc(x.code)}',${!x.active})">${x.active?"TẮT":"BẬT"}</button>
-        <button onclick="resetCode('${esc(x.code)}')">RESET</button>
-        <button onclick="deleteCode('${esc(x.code)}')">XÓA</button>
-      </div>
-    </div>`;
-  }).join("");
-}
+  try {
 
-async function toggleCode(code,active){
-  await fetch("/api/codes/"+encodeURIComponent(code),{
-    method:"PATCH",
-    headers:{"Content-Type":"application/json","x-admin-password":adminPassword},
-    body:JSON.stringify({active})
-  });
-  loadCodes();
-}
-
-async function resetCode(code){
-  if(!confirm("Reset toàn bộ lượt sử dụng của code này?"))return;
-  await fetch("/api/codes/"+encodeURIComponent(code),{
-    method:"PATCH",
-    headers:{"Content-Type":"application/json","x-admin-password":adminPassword},
-    body:JSON.stringify({resetUses:true})
-  });
-  loadCodes();
-}
-
-async function deleteCode(code){
-  if(!confirm("Xóa code này?"))return;
-  await fetch("/api/codes/"+encodeURIComponent(code),{
-    method:"DELETE",
-    headers:{"x-admin-password":adminPassword}
-  });
-  loadCodes();
-}
-
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function esc(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
-
-(async()=>{
-  await checkServer();
-  const saved=sessionStorage.getItem("sctAdminPassword");
-  if(saved){
-    $("pass").value=saved;
-    adminPassword=saved;
-    try{
-      const r=await fetch("/api/codes",{headers:{"x-admin-password":saved},cache:"no-store"});
-      if(r.ok){
-        $("loginCard").style.display="none";
-        $("app").style.display="block";
-        render(await r.json());
+    const r = await fetch(
+      API_URL + "/api/codes",
+      {
+        headers: {
+          "x-admin-password": p
+        },
+        cache: "no-store"
       }
-    }catch(e){}
+    );
+
+    const d = await r.json().catch(() => null);
+
+    if (!r.ok) {
+
+      $("loginMsg").innerHTML =
+        `<div class="status err">
+          ❌ ${d?.error || "Mật khẩu sai hoặc Server chưa chạy."}
+        </div>`;
+
+      return;
+    }
+
+    adminPassword = p;
+
+    sessionStorage.setItem(
+      "sctAdminPassword",
+      p
+    );
+
+    $("loginCard").style.display = "none";
+    $("app").style.display = "block";
+
+    render(d);
+
+  } catch (e) {
+
+    $("loginMsg").innerHTML =
+      '<div class="status err">🔴 Không kết nối được Server Render.</div>';
+
+  } finally {
+
+    $("loginBtn").disabled = false;
+    $("loginBtn").textContent = "🔑 ĐĂNG NHẬP";
   }
+}
+
+
+// ============================
+// ĐĂNG XUẤT
+// ============================
+
+function logout() {
+
+  adminPassword = "";
+
+  sessionStorage.removeItem(
+    "sctAdminPassword"
+  );
+
+  $("app").style.display = "none";
+  $("loginCard").style.display = "block";
+
+  $("pass").value = "";
+  $("loginMsg").innerHTML = "";
+
+  checkServer();
+}
+
+
+// ============================
+// TẢI DANH SÁCH CODE
+// ============================
+
+async function loadCodes() {
+
+  try {
+
+    const r = await api(
+      "/api/codes"
+    );
+
+    const d = await r.json().catch(() => null);
+
+    if (!r.ok) {
+
+      if (r.status === 401) {
+        logout();
+        return;
+      }
+
+      throw new Error(
+        d?.error || "Không tải được code"
+      );
+    }
+
+    render(d);
+
+  } catch (e) {
+
+    $("list").innerHTML =
+      `<div class="status err">
+        🔴 ${e.message || "Không tải được dữ liệu."}
+      </div>`;
+  }
+}
+
+
+// ============================
+// TẠO CODE
+// ============================
+
+async function createCode() {
+
+  const code =
+    $("code").value.trim().toUpperCase();
+
+  const reward =
+    Number($("reward").value);
+
+  const maxUses =
+    Number($("maxUses").value || 0);
+
+  const expires =
+    $("expires").value
+      ? new Date(
+          $("expires").value
+        ).toISOString()
+      : null;
+
+
+  if (!code) {
+
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Chưa nhập code.</div>';
+
+    return;
+  }
+
+
+  if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
+
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Code phải từ 3–40 ký tự A-Z, 0-9, _ hoặc -.</div>';
+
+    return;
+  }
+
+
+  if (!Number.isFinite(reward) || reward <= 0) {
+
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Số điểm không hợp lệ.</div>';
+
+    return;
+  }
+
+
+  if (!Number.isInteger(maxUses) || maxUses < 0) {
+
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Số lượt sử dụng không hợp lệ.</div>';
+
+    return;
+  }
+
+
+  $("createMsg").innerHTML =
+    '<div class="status info">⏳ Đang tạo code...</div>';
+
+
+  try {
+
+    const r = await api(
+      "/api/codes",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          code,
+          reward,
+          maxUses,
+          expiresAt: expires
+        })
+      }
+    );
+
+
+    const d =
+      await r.json().catch(() => null);
+
+
+    if (!r.ok || !d?.ok) {
+
+      $("createMsg").innerHTML =
+        `<div class="status err">
+          ❌ ${d?.error || "Không tạo được code."}
+        </div>`;
+
+      return;
+    }
+
+
+    $("createMsg").innerHTML =
+      `<div class="status ok">
+        ✅ Đã tạo <b>${escapeHtml(code)}</b>
+        → +${reward.toLocaleString("vi-VN")} điểm
+      </div>`;
+
+
+    $("code").value = "";
+    $("reward").value = "";
+    $("maxUses").value = "0";
+    $("expires").value = "";
+
+
+    await loadCodes();
+
+  } catch (e) {
+
+    $("createMsg").innerHTML =
+      '<div class="status err">🔴 Server không phản hồi.</div>';
+  }
+}
+
+
+// ============================
+// HIỂN THỊ CODE
+// ============================
+
+function render(data) {
+
+  const arr =
+    Array.isArray(data)
+      ? data
+      : Array.isArray(data?.codes)
+        ? data.codes
+        : [];
+
+
+  if (!arr.length) {
+
+    $("list").innerHTML =
+      '<div class="muted">Chưa có code nào.</div>';
+
+    return;
+  }
+
+
+  $("list").innerHTML =
+    arr.map(x => {
+
+      const exp =
+        x.expiresAt
+          ? new Date(
+              x.expiresAt
+            ).toLocaleString("vi-VN")
+          : "Không hết hạn";
+
+
+      return `
+        <div class="code">
+
+          <b>🎁 ${escapeHtml(x.code)}</b><br>
+
+          💰 +${Number(
+            x.reward
+          ).toLocaleString("vi-VN")} điểm<br>
+
+          🔢 ${
+            x.usedCount || 0
+          }/${x.maxUses || "∞"} lượt<br>
+
+          📅 ${exp}<br>
+
+          <span class="muted">
+            ${
+              x.active
+                ? "🟢 ĐANG BẬT"
+                : "🔴 ĐÃ TẮT"
+            }
+          </span>
+
+          <div class="actions">
+
+            <button
+              onclick="toggleCode(
+                '${esc(x.code)}',
+                ${!x.active}
+              )">
+              ${x.active ? "TẮT" : "BẬT"}
+            </button>
+
+            <button
+              onclick="resetCode(
+                '${esc(x.code)}'
+              )">
+              RESET
+            </button>
+
+            <button
+              onclick="deleteCode(
+                '${esc(x.code)}'
+              )">
+              XÓA
+            </button>
+
+          </div>
+
+        </div>
+      `;
+
+    }).join("");
+}
+
+
+// ============================
+// BẬT / TẮT CODE
+// ============================
+
+async function toggleCode(
+  code,
+  active
+) {
+
+  try {
+
+    const r = await api(
+      "/api/codes/" +
+      encodeURIComponent(code),
+      {
+        method: "PATCH",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          active
+        })
+      }
+    );
+
+
+    if (r.status === 401) {
+      logout();
+      return;
+    }
+
+
+    await loadCodes();
+
+  } catch (e) {
+
+    alert(
+      "Không kết nối được Server."
+    );
+  }
+}
+
+
+// ============================
+// RESET CODE
+// ============================
+
+async function resetCode(code) {
+
+  if (
+    !confirm(
+      "Reset toàn bộ lượt sử dụng của code này?"
+    )
+  ) {
+    return;
+  }
+
+
+  try {
+
+    const r = await api(
+      "/api/codes/" +
+      encodeURIComponent(code),
+      {
+        method: "PATCH",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          resetUses: true
+        })
+      }
+    );
+
+
+    if (r.status === 401) {
+      logout();
+      return;
+    }
+
+
+    await loadCodes();
+
+  } catch (e) {
+
+    alert(
+      "Không kết nối được Server."
+    );
+  }
+}
+
+
+// ============================
+// XÓA CODE
+// ============================
+
+async function deleteCode(code) {
+
+  if (
+    !confirm(
+      "Xóa code này?"
+    )
+  ) {
+    return;
+  }
+
+
+  try {
+
+    const r = await api(
+      "/api/codes/" +
+      encodeURIComponent(code),
+      {
+        method: "DELETE"
+      }
+    );
+
+
+    if (r.status === 401) {
+      logout();
+      return;
+    }
+
+
+    await loadCodes();
+
+  } catch (e) {
+
+    alert(
+      "Không kết nối được Server."
+    );
+  }
+}
+
+
+// ============================
+// CHỐNG HTML INJECTION
+// ============================
+
+function escapeHtml(s) {
+
+  return String(s).replace(
+    /[&<>"']/g,
+    m => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[m])
+  );
+}
+
+
+function esc(s) {
+
+  return String(s)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+}
+
+
+// ============================
+// KHỞI ĐỘNG ADMIN
+// ============================
+
+(async function init() {
+
+  await checkServer();
+
+  const saved =
+    sessionStorage.getItem(
+      "sctAdminPassword"
+    );
+
+
+  if (!saved) return;
+
+
+  $("pass").value = saved;
+  adminPassword = saved;
+
+
+  try {
+
+    const r = await api(
+      "/api/codes"
+    );
+
+
+    if (!r.ok) {
+      sessionStorage.removeItem(
+        "sctAdminPassword"
+      );
+      adminPassword = "";
+      return;
+    }
+
+
+    const d =
+      await r.json();
+
+
+    $("loginCard").style.display =
+      "none";
+
+    $("app").style.display =
+      "block";
+
+    render(d);
+
+  } catch (e) {
+
+    console.log(
+      "Chưa kết nối được Server:",
+      e
+    );
+  }
+
 })();
-</script> const API_URL = "https://ttt9-9-9-9.onrender.com";
-</body>
-</html>
+</script>
