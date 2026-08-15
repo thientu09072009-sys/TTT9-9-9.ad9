@@ -1,147 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADMIN SCT</title>
+<style>
+body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#100616;
+    color:white;
+    font-family:Arial,sans-serif;
+}
+.box{
+    width:min(500px,90%);
+    padding:30px;
+    background:#211027;
+    border:2px solid #71305f;
+    border-radius:20px;
+    text-align:center;
+}
+h1{
+    color:#ffd34e;
+}
+input,button{
+    width:100%;
+    box-sizing:border-box;
+    padding:14px;
+    margin:7px 0;
+    border-radius:10px;
+    border:0;
+}
+input{
+    background:#100812;
+    color:white;
+    border:1px solid #714765;
+}
+button{
+    background:#71305f;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+}
+#status{
+    margin:10px 0;
+    padding:10px;
+    border-radius:8px;
+    background:#252035;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+<h1>🔐 ADMIN — CHÚA TỂ SCT</h1>
+
+<div id="status">
+🔄 Đang kiểm tra...
+</div>
+
+<input
+    id="password"
+    type="password"
+    placeholder="Mật khẩu Admin"
+>
+
+<button onclick="login()">
+🔑 ĐĂNG NHẬP
+</button>
+
+<div id="result"></div>
+
+</div>
+
 <script>
-const API_URL = "https://ttt9-9-9-9.onrender.com";
 
-let adminPassword = "";
+const API_URL =
+"https://ttt9-9-9-9.onrender.com";
 
-const $ = id => document.getElementById(id);
+async function checkServer(){
 
-async function api(path, options = {}) {
-  const headers = {
-    ...(options.headers || {})
-  };
+    try{
 
-  if (adminPassword) {
-    headers["x-admin-password"] = adminPassword;
-  }
+        const response =
+        await fetch(API_URL + "/api/health");
 
-  return fetch(API_URL + path, {
-    ...options,
-    headers,
-    cache: "no-store"
-  });
-}
+        if(!response.ok)
+            throw new Error();
 
+        document.getElementById("status").innerHTML =
+        "🟢 SERVER ĐANG ONLINE";
 
-// ============================
-// KIỂM TRA SERVER
-// ============================
+    }catch(error){
 
-async function checkServer() {
-  const status = $("serverStatus");
+        document.getElementById("status").innerHTML =
+        "🔴 SERVER CHƯA KẾT NỐI";
 
-  status.className = "status info";
-  status.textContent = "🔄 Đang kiểm tra server...";
-
-  try {
-    const r = await api("/api/health");
-
-    if (!r.ok) {
-      throw new Error("Server trả lỗi");
     }
 
-    const d = await r.json();
-
-    if (d.ok) {
-      status.className = "status ok";
-      status.textContent = "🟢 Server đang hoạt động";
-    } else {
-      throw new Error();
-    }
-
-  } catch (e) {
-    status.className = "status err";
-    status.textContent =
-      "🔴 Không kết nối được Server Render";
-  }
 }
 
+async function login(){
 
-// ============================
-// HIỆN / ẨN MẬT KHẨU
-// ============================
+    const password =
+    document.getElementById("password").value;
 
-function togglePass() {
-  $("pass").type =
-    $("pass").type === "password"
-      ? "text"
-      : "password";
-}
+    if(!password){
 
+        document.getElementById("result").innerHTML =
+        "❌ Nhập mật khẩu trước.";
 
-// ============================
-// ENTER ĐỂ ĐĂNG NHẬP
-// ============================
+        return;
 
-$("pass").addEventListener("keydown", e => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    login();
-  }
-});
-
-
-// ============================
-// ĐĂNG NHẬP ADMIN
-// ============================
-
-async function login() {
-
-  const p = $("pass").value.trim();
-
-  if (!p) {
-    $("loginMsg").innerHTML =
-      '<div class="status err">❌ Vui lòng nhập mật khẩu.</div>';
-    return;
-  }
-
-  $("loginBtn").disabled = true;
-  $("loginBtn").textContent = "⏳ Đang đăng nhập...";
-
-  try {
-
-    const r = await fetch(
-      API_URL + "/api/codes",
-      {
-        headers: {
-          "x-admin-password": p
-        },
-        cache: "no-store"
-      }
-    );
-
-    const d = await r.json().catch(() => null);
-
-    if (!r.ok) {
-
-      $("loginMsg").innerHTML =
-        `<div class="status err">
-          ❌ ${d?.error || "Mật khẩu sai hoặc Server chưa chạy."}
-        </div>`;
-
-      return;
     }
 
-    adminPassword = p;
+    try{
 
-    sessionStorage.setItem(
-      "sctAdminPassword",
-      p
-    );
+        const response =
+        await fetch(
+            API_URL + "/api/codes",
+            {
+                headers:{
+                    "x-admin-password":password
+                }
+            }
+        );
 
-    $("loginCard").style.display = "none";
-    $("app").style.display = "block";
+        if(!response.ok){
 
-    render(d);
+            document.getElementById("result").innerHTML =
+            "❌ Mật khẩu sai hoặc API lỗi.";
 
-  } catch (e) {
+            return;
 
-    $("loginMsg").innerHTML =
-      '<div class="status err">🔴 Không kết nối được Server Render.</div>';
+        }
 
-  } finally {
+        document.getElementById("result").innerHTML =
+        "✅ Đăng nhập thành công!";
 
-    $("loginBtn").disabled = false;
-    $("loginBtn").textContent = "🔑 ĐĂNG NHẬP";
+    }catch(error){
+
+        document.getElementById("result").innerHTML =
+        "🔴 Không kết nối được Render.";
+
+    }
+
+}
+
+checkServer();
+
+</script>
+
+</body>
+</html>    $("loginBtn").textContent = "🔑 ĐĂNG NHẬP";
   }
 }
 
