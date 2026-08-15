@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ADMIN — CHÚA TỂ SCT</title>
+<title>ADMIN — TTT9-9-9</title>
 
 <style>
 *{
@@ -238,7 +238,7 @@ button:disabled{
 
 <div class="wrap">
 
-<h1>🔐 ADMIN — CHÚA TỂ SCT</h1>
+<h1>🔐 ADMIN — TTT9-9-9</h1>
 
 <!-- ================= LOGIN ================= -->
 
@@ -369,7 +369,7 @@ button:disabled{
 </div>
 
 <div class="footer">
-  CHÚA TỂ SCT • ADMIN SYSTEM
+  TTT9-9-9 • ADMIN SYSTEM
 </div>
 
 </div>
@@ -381,7 +381,7 @@ button:disabled{
    CẤU HÌNH SERVER
    ===================================================== */
 
-const API_URL = "https://ttt9-9-9-9.onrender.com";
+const API_URL = "";
 
 
 /* =====================================================
@@ -531,10 +531,10 @@ async function login(){
   try{
 
     const {response,data} = await api(
-      "/api/codes",
+      "/api/admin/codes",
       {
         headers:{
-          "x-admin-password":password
+          "x-admin-key":password
         }
       }
     );
@@ -623,10 +623,10 @@ async function loadCodes(){
   try{
 
     const {response,data} = await api(
-      "/api/codes",
+      "/api/admin/codes",
       {
         headers:{
-          "x-admin-password":adminPassword
+          "x-admin-key":adminPassword
         }
       }
     );
@@ -743,13 +743,13 @@ async function createCode(){
   try{
 
     const {response,data} = await api(
-      "/api/codes",
+      "/api/admin/codes",
       {
         method:"POST",
 
         headers:{
           "Content-Type":"application/json",
-          "x-admin-password":adminPassword
+          "x-admin-key":adminPassword
         },
 
         body:JSON.stringify({
@@ -936,14 +936,14 @@ async function toggleCode(code,active){
   try{
 
     const {response,data} = await api(
-      "/api/codes/" +
+      "/api/admin/codes/" +
       encodeURIComponent(code),
       {
         method:"PATCH",
 
         headers:{
           "Content-Type":"application/json",
-          "x-admin-password":adminPassword
+          "x-admin-key":adminPassword
         },
 
         body:JSON.stringify({
@@ -997,14 +997,14 @@ async function resetCode(code){
   try{
 
     const {response,data} = await api(
-      "/api/codes/" +
+      "/api/admin/codes/" +
       encodeURIComponent(code),
       {
         method:"PATCH",
 
         headers:{
           "Content-Type":"application/json",
-          "x-admin-password":adminPassword
+          "x-admin-key":adminPassword
         },
 
         body:JSON.stringify({
@@ -1058,13 +1058,13 @@ async function deleteCode(code){
   try{
 
     const {response,data} = await api(
-      "/api/codes/" +
+      "/api/admin/codes/" +
       encodeURIComponent(code),
       {
         method:"DELETE",
 
         headers:{
-          "x-admin-password":adminPassword
+          "x-admin-key":adminPassword
         }
 
       }
@@ -1153,7 +1153,7 @@ async function restoreSession(){
   try{
 
     const {response,data} = await api(
-      "/api/codes",
+      "/api/admin/codes",
       {
         headers:{
           "x-admin-password":saved
