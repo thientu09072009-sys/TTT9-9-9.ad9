@@ -75,7 +75,7 @@ const $=id=>document.getElementById(id);
 
 async function checkServer(){
   try{
-    const r=await fetch(API_URL+"/api/health",{cache:"no-store"});
+    const r=await fetch(API_URL+"/health",{cache:"no-store"});
     if(!r.ok) throw new Error();
     $("serverStatus").className="status ok";
     $("serverStatus").textContent="🟢 Server đang hoạt động";
@@ -105,9 +105,9 @@ async function login(){
   $("loginBtn").disabled=true;
   $("loginBtn").textContent="⏳ Đang đăng nhập...";
   try{
-    const r=await fetch(API_URL+"/api/codes",{headers:{"x-admin-key":p},cache:"no-store"});
+    const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":p},cache:"no-store"});
     if(!r.ok){
-      $("loginMsg").innerHTML='<div class="status err">❌ Mật khẩu sai hoặc server chưa chạy.</div>';
+      $("loginMsg").innerHTML='<div class="status err">❌ Sai ADMIN_KEY hoặc server chưa cấu hình ADMIN_KEY.</div>';
       return;
     }
     adminPassword=p;
@@ -133,7 +133,7 @@ function logout(){
 
 async function loadCodes(){
   try{
-    const r=await fetch(API_URL+"/api/codes",{headers:{"x-admin-key":adminPassword},cache:"no-store"});
+    const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":adminPassword},cache:"no-store"});
     if(!r.ok){logout();return}
     render(await r.json());
   }catch(e){
@@ -153,7 +153,7 @@ async function createCode(){
   }
 
   try{
-    const r=await fetch(API_URL+"/api/codes",{
+    const r=await fetch(API_URL+"/api/admin/codes",{
       method:"POST",
       headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
       body:JSON.stringify({code,reward,maxUses,expiresAt:expires})
@@ -194,7 +194,7 @@ function render(arr){
 }
 
 async function toggleCode(code,active){
-  await fetch(API_URL+"/api/codes/"+encodeURIComponent(code),{
+  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
     method:"PATCH",
     headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
     body:JSON.stringify({active})
@@ -204,7 +204,7 @@ async function toggleCode(code,active){
 
 async function resetCode(code){
   if(!confirm("Reset toàn bộ lượt sử dụng của code này?"))return;
-  await fetch(API_URL+"/api/codes/"+encodeURIComponent(code),{
+  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
     method:"PATCH",
     headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
     body:JSON.stringify({resetUses:true})
@@ -214,7 +214,7 @@ async function resetCode(code){
 
 async function deleteCode(code){
   if(!confirm("Xóa code này?"))return;
-  await fetch(API_URL+"/api/codes/"+encodeURIComponent(code),{
+  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
     method:"DELETE",
     headers:{"x-admin-key":adminPassword}
   });
@@ -231,7 +231,7 @@ function esc(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
     $("pass").value=saved;
     adminPassword=saved;
     try{
-      const r=await fetch(API_URL+"/api/codes",{headers:{"x-admin-key":saved},cache:"no-store"});
+      const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":saved},cache:"no-store"});
       if(r.ok){
         $("loginCard").style.display="none";
         $("app").style.display="block";
