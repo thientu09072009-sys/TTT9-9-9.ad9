@@ -10,6 +10,7 @@ body{margin:0;background:#100616;color:#fff;font-family:Arial,sans-serif}
 .wrap{max-width:680px;margin:auto;padding:15px}
 .card{background:#211027;border:1px solid #71305f;border-radius:14px;padding:14px;margin:10px 0}
 h1{color:#ffd34e;text-align:center}
+h3{margin:6px 0 12px}
 input,button{width:100%;padding:12px;margin:5px 0;border-radius:9px;border:0;font-size:15px}
 input{background:#120812;color:#fff;border:1px solid #714765}
 button{background:#63305e;color:#fff;font-weight:bold;cursor:pointer}
@@ -21,11 +22,24 @@ button:active{transform:translateY(1px)}
 .code{border-top:1px solid #44233e;padding:12px 0}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .actions button{font-size:12px;padding:9px}
+.filter{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.filter button.active{background:#a24d8d;box-shadow:0 0 0 1px #ffd34e inset}
 .muted{color:#c7afc5;font-size:12px}
 #app{display:none}
 .eye{position:relative}
 .eye button{position:absolute;right:5px;top:5px;width:auto;padding:8px 10px;background:#39203d}
-@media(max-width:480px){.row,.actions{grid-template-columns:1fr}.wrap{padding:9px}}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.stat{background:#160b1b;border:1px solid #44233e;border-radius:10px;padding:10px}
+.stat b{display:block;color:#ffd34e;font-size:17px;margin-top:4px}
+.tableWrap{overflow-x:auto;border-top:1px solid #44233e;margin-top:8px}
+table{width:100%;border-collapse:collapse;min-width:620px;font-size:12px}
+th,td{padding:8px;border-bottom:1px solid #44233e;text-align:left;white-space:nowrap}
+th{color:#ffd34e;background:#170b1c;position:sticky;top:0}
+.tx{color:#ff9a9a}.xd{color:#8ecbff}
+.good{color:#9affaa}.bad{color:#ff9b9b}
+.resultHead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.resultHead button{width:auto;padding:9px 12px;margin:0}
+@media(max-width:480px){.row,.actions,.filter,.stats{grid-template-columns:1fr}.wrap{padding:9px}}
 </style>
 </head>
 <body>
@@ -60,9 +74,27 @@ button:active{transform:translateY(1px)}
   </div>
 
   <div class="card">
-    <h3>📋 Quản lý code</h3>
-    <button type="button" onclick="loadCodes()">🔄 TẢI LẠI</button>
+    <div class="resultHead">
+      <h3>📋 Quản lý code</h3>
+      <button type="button" onclick="loadCodes()">🔄 TẢI</button>
+    </div>
     <div id="list"><div class="muted">Chưa tải danh sách.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="resultHead">
+      <h3>🎲 Kết quả thu được bên game</h3>
+      <button type="button" onclick="loadResults()">🔄 TẢI</button>
+    </div>
+    <div class="filter">
+      <button id="filterAll" class="active" onclick="setGameFilter('all')">TẤT CẢ</button>
+      <button id="filterTx" onclick="setGameFilter('tx')">🎲 TÀI XỈU</button>
+      <button id="filterXd" onclick="setGameFilter('xd')">🥣 XÓC ĐĨA</button>
+    </div>
+    <div id="resultMsg" class="status info">Chưa tải kết quả.</div>
+    <div id="summary"></div>
+    <div id="txResults"></div>
+    <div id="xdResults"></div>
   </div>
 </div>
 </div>
@@ -70,13 +102,20 @@ button:active{transform:translateY(1px)}
 <script>
 const API_URL="https://ttt9-9-9-9.onrender.com";
 let adminPassword="";
-
+let gameFilter="all";
 const $=id=>document.getElementById(id);
+
+async function api(path,options={}){
+  const headers={Accept:"application/json",...(options.headers||{}),"x-admin-key":adminPassword};
+  const r=await fetch(API_URL+path,{...options,headers,cache:"no-store"});
+  let data={}; try{data=await r.json()}catch{}
+  return {r,data};
+}
 
 async function checkServer(){
   try{
     const r=await fetch(API_URL+"/health",{cache:"no-store"});
-    if(!r.ok) throw new Error();
+    if(!r.ok) throw new Error("HTTP "+r.status);
     $("serverStatus").className="status ok";
     $("serverStatus").textContent="🟢 Server đang hoạt động";
   }catch(e){
@@ -88,57 +127,40 @@ async function checkServer(){
 function togglePass(){
   $("pass").type=$("pass").type==="password"?"text":"password";
 }
-
-$("pass").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    login();
-  }
-});
+$("pass").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();login()}});
 
 async function login(){
   const p=$("pass").value.trim();
-  if(!p){
-    $("loginMsg").innerHTML='<div class="status err">❌ Vui lòng nhập mật khẩu.</div>';
-    return;
-  }
-  $("loginBtn").disabled=true;
-  $("loginBtn").textContent="⏳ Đang đăng nhập...";
+  if(!p){$("loginMsg").innerHTML='<div class="status err">❌ Vui lòng nhập mật khẩu.</div>';return}
+  $("loginBtn").disabled=true;$("loginBtn").textContent="⏳ Đang đăng nhập...";
   try{
-    const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":p},cache:"no-store"});
-    if(!r.ok){
-      $("loginMsg").innerHTML='<div class="status err">❌ Sai ADMIN_KEY hoặc server chưa cấu hình ADMIN_KEY.</div>';
-      return;
-    }
     adminPassword=p;
+    const {r,data}=await api("/api/admin/codes");
+    if(!r.ok) throw new Error(data.error||"Sai ADMIN_KEY");
     sessionStorage.setItem("sctAdminPassword",p);
-    $("loginCard").style.display="none";
-    $("app").style.display="block";
-    render(await r.json());
+    $("loginCard").style.display="none";$("app").style.display="block";
+    renderCodes(Array.isArray(data)?data:(data.codes||[]));
+    await loadResults();
   }catch(e){
-    $("loginMsg").innerHTML='<div class="status err">🔴 Không kết nối được server.</div>';
+    adminPassword="";
+    $("loginMsg").innerHTML='<div class="status err">❌ '+escapeHtml(e.message||"Không đăng nhập được")+'</div>';
   }finally{
-    $("loginBtn").disabled=false;
-    $("loginBtn").textContent="🔑 ĐĂNG NHẬP";
+    $("loginBtn").disabled=false;$("loginBtn").textContent="🔑 ĐĂNG NHẬP";
   }
 }
 
 function logout(){
-  adminPassword="";
-  sessionStorage.removeItem("sctAdminPassword");
-  $("app").style.display="none";
-  $("loginCard").style.display="block";
-  $("pass").value="";
+  adminPassword="";sessionStorage.removeItem("sctAdminPassword");
+  $("app").style.display="none";$("loginCard").style.display="block";$("pass").value="";
 }
 
 async function loadCodes(){
   try{
-    const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":adminPassword},cache:"no-store"});
-    if(!r.ok){logout();return}
-    render(await r.json());
-  }catch(e){
-    $("list").innerHTML='<div class="status err">🔴 Không tải được dữ liệu.</div>';
-  }
+    const {r,data}=await api("/api/admin/codes");
+    if(r.status===401||r.status===403){logout();return}
+    if(!r.ok) throw new Error(data.error||"Không tải được code");
+    renderCodes(Array.isArray(data)?data:(data.codes||[]));
+  }catch(e){$("list").innerHTML='<div class="status err">🔴 '+escapeHtml(e.message)+'</div>'}
 }
 
 async function createCode(){
@@ -146,42 +168,25 @@ async function createCode(){
   const reward=Number($("reward").value);
   const maxUses=Number($("maxUses").value||0);
   const expires=$("expires").value?new Date($("expires").value).toISOString():null;
-
-  if(!code||reward<=0||maxUses<0){
-    $("createMsg").innerHTML='<div class="status err">❌ Kiểm tra lại thông tin code.</div>';
-    return;
-  }
-
+  if(!code||reward<=0||maxUses<0){$("createMsg").innerHTML='<div class="status err">❌ Kiểm tra lại thông tin code.</div>';return}
   try{
-    const r=await fetch(API_URL+"/api/admin/codes",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
-      body:JSON.stringify({code,reward,maxUses,expiresAt:expires})
-    });
-    const d=await r.json();
-    if(!r.ok||!d.ok){
-      $("createMsg").innerHTML='<div class="status err">❌ '+(d.error||"Không tạo được code")+'</div>';
-      return;
-    }
-    $("createMsg").innerHTML='<div class="status ok">✅ Đã tạo code '+code.toUpperCase()+'</div>';
+    const {r,data}=await api("/api/admin/codes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,reward,maxUses,expiresAt:expires})});
+    if(!r.ok||!data.ok) throw new Error(data.error||"Không tạo được code");
+    $("createMsg").innerHTML='<div class="status ok">✅ Đã tạo code '+escapeHtml(code.toUpperCase())+'</div>';
     $("code").value="";$("reward").value="";$("maxUses").value="0";$("expires").value="";
-    loadCodes();
-  }catch(e){
-    $("createMsg").innerHTML='<div class="status err">🔴 Server không phản hồi.</div>';
-  }
+    await loadCodes();
+  }catch(e){$("createMsg").innerHTML='<div class="status err">❌ '+escapeHtml(e.message)+'</div>'}
 }
 
-function render(arr){
-  if(!arr.length){
-    $("list").innerHTML='<div class="muted">Chưa có code nào.</div>';
-    return;
-  }
+function renderCodes(arr){
+  if(!arr.length){$("list").innerHTML='<div class="muted">Chưa có code nào.</div>';return}
   $("list").innerHTML=arr.map(x=>{
-    const exp=x.expiresAt?new Date(x.expiresAt).toLocaleString("vi-VN"):"Không hết hạn";
+    const exp=x.expires_at?new Date(x.expires_at).toLocaleString("vi-VN"):(x.expiresAt?new Date(x.expiresAt).toLocaleString("vi-VN"):"Không hết hạn");
+    const uses=Number(x.uses??x.usedCount??0), max=Number(x.max_uses??x.maxUses??0);
     return `<div class="code">
       <b>🎁 ${escapeHtml(x.code)}</b><br>
       💰 +${Number(x.reward).toLocaleString("vi-VN")} điểm<br>
-      🔢 ${x.usedCount}/${x.maxUses||"∞"} lượt<br>
+      🔢 ${uses}/${max||"∞"} lượt<br>
       📅 ${exp}<br>
       <span class="muted">${x.active?"🟢 ĐANG BẬT":"🔴 ĐÃ TẮT"}</span>
       <div class="actions">
@@ -194,50 +199,105 @@ function render(arr){
 }
 
 async function toggleCode(code,active){
-  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
-    method:"PATCH",
-    headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
-    body:JSON.stringify({active})
-  });
-  loadCodes();
+  try{
+    const {r,data}=await api("/api/admin/codes/"+encodeURIComponent(code),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({active})});
+    if(!r.ok) throw new Error(data.error||"Không cập nhật được");
+    await loadCodes();
+  }catch(e){alert(e.message)}
 }
-
 async function resetCode(code){
   if(!confirm("Reset toàn bộ lượt sử dụng của code này?"))return;
-  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
-    method:"PATCH",
-    headers:{"Content-Type":"application/json","x-admin-key":adminPassword},
-    body:JSON.stringify({resetUses:true})
-  });
-  loadCodes();
+  try{
+    const {r,data}=await api("/api/admin/codes/"+encodeURIComponent(code),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({resetUses:true})});
+    if(!r.ok) throw new Error(data.error||"Không reset được");
+    await loadCodes();
+  }catch(e){alert(e.message)}
 }
-
 async function deleteCode(code){
   if(!confirm("Xóa code này?"))return;
-  await fetch(API_URL+"/api/admin/codes/"+encodeURIComponent(code),{
-    method:"DELETE",
-    headers:{"x-admin-key":adminPassword}
-  });
-  loadCodes();
+  try{
+    const {r,data}=await api("/api/admin/codes/"+encodeURIComponent(code),{method:"DELETE"});
+    if(!r.ok) throw new Error(data.error||"Không xóa được");
+    await loadCodes();
+  }catch(e){alert(e.message)}
 }
 
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function esc(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+function setGameFilter(v){
+  gameFilter=v;
+  ["All","Tx","Xd"].forEach(x=>$("filter"+x).classList.remove("active"));
+  $(v==="all"?"filterAll":v==="tx"?"filterTx":"filterXd").classList.add("active");
+  loadResults();
+}
+
+async function loadResults(){
+  $("resultMsg").className="status info";$("resultMsg").textContent="🔄 Đang tải kết quả game...";
+  try{
+    const {r,data}=await api("/api/admin/results?game="+gameFilter+"&limit=100");
+    if(r.status===401||r.status===403){logout();return}
+    if(!r.ok) throw new Error(data.error||"Không tải được kết quả");
+    renderSummary(data.summary||{});
+    renderTx(data.tx||[]);
+    renderXd(data.xd||[]);
+    $("resultMsg").className="status ok";
+    $("resultMsg").textContent="🟢 Đã tải "+Number((data.tx||[]).length+(data.xd||[]).length)+" ván đã có kết quả";
+  }catch(e){
+    $("resultMsg").className="status err";$("resultMsg").textContent="🔴 "+e.message;
+  }
+}
+
+function fmt(n){return Number(n||0).toLocaleString("vi-VN")}
+function dt(v){return v?new Date(v).toLocaleString("vi-VN"):"—"}
+function resultClass(n){return Number(n)>=0?"good":"bad"}
+
+function renderSummary(s){
+  $("summary").innerHTML=`<div class="stats">
+    <div class="stat">🎮 Số ván<b>${fmt(s.totalRounds)}</b></div>
+    <div class="stat">💰 Tổng cược<b>${fmt(s.totalBet)}</b></div>
+    <div class="stat">🎁 Tổng trả thưởng<b>${fmt(s.totalPayout)}</b></div>
+    <div class="stat">📊 Chênh lệch<b class="${resultClass(s.houseResult)}">${fmt(s.houseResult)}</b></div>
+    <div class="stat">👥 Tổng lượt cược<b>${fmt(s.totalBets)}</b></div>
+    <div class="stat">🧑 Người chơi<b>${fmt(s.totalPlayers)}</b></div>
+  </div>`;
+}
+
+function renderTx(rows){
+  if(!rows.length){$("txResults").innerHTML="";return}
+  $("txResults").innerHTML=`<h4 class="tx">🎲 LỊCH SỬ TÀI XỈU</h4><div class="tableWrap"><table>
+  <thead><tr><th>Ván</th><th>Xúc xắc</th><th>Tổng</th><th>Kết quả</th><th>Cược</th><th>Trả</th><th>Chênh</th><th>Lượt</th><th>Thời gian</th></tr></thead>
+  <tbody>${rows.map(x=>`<tr>
+    <td>#${x.roundId}</td><td>${x.dice.join(" - ")}</td><td>${x.total??"—"}</td><td>${escapeHtml(x.side||"—")}</td>
+    <td>${fmt(x.totalBet)}</td><td>${fmt(x.totalPayout)}</td><td class="${resultClass(x.houseResult)}">${fmt(x.houseResult)}</td>
+    <td>${x.betCount}/${x.playerCount}</td><td>${dt(x.startedAt)}</td>
+  </tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderXd(rows){
+  if(!rows.length){$("xdResults").innerHTML="";return}
+  $("xdResults").innerHTML=`<h4 class="xd">🥣 LỊCH SỬ XÓC ĐĨA</h4><div class="tableWrap"><table>
+  <thead><tr><th>Ván</th><th>Đỏ</th><th>Trắng</th><th>Kết quả</th><th>Hệ số</th><th>Cược</th><th>Trả</th><th>Chênh</th><th>Lượt</th><th>Thời gian</th></tr></thead>
+  <tbody>${rows.map(x=>`<tr>
+    <td>#${x.roundId}</td><td>${x.redCount??"—"}</td><td>${x.whiteCount??"—"}</td><td>${escapeHtml(x.side||"—")}</td><td>${Number(x.multiplier||0).toFixed(2)}x</td>
+    <td>${fmt(x.totalBet)}</td><td>${fmt(x.totalPayout)}</td><td class="${resultClass(x.houseResult)}">${fmt(x.houseResult)}</td>
+    <td>${x.betCount}/${x.playerCount}</td><td>${dt(x.startedAt)}</td>
+  </tr>`).join("")}</tbody></table></div>`;
+}
+
+function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function esc(s){return String(s??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
 
 (async()=>{
   await checkServer();
   const saved=sessionStorage.getItem("sctAdminPassword");
   if(saved){
-    $("pass").value=saved;
-    adminPassword=saved;
+    adminPassword=saved;$("pass").value=saved;
     try{
-      const r=await fetch(API_URL+"/api/admin/codes",{headers:{"x-admin-key":saved},cache:"no-store"});
+      const {r,data}=await api("/api/admin/codes");
       if(r.ok){
-        $("loginCard").style.display="none";
-        $("app").style.display="block";
-        render(await r.json());
-      }
-    }catch(e){}
+        $("loginCard").style.display="none";$("app").style.display="block";
+        renderCodes(Array.isArray(data)?data:(data.codes||[]));
+        await loadResults();
+      }else{adminPassword="";sessionStorage.removeItem("sctAdminPassword")}
+    }catch(e){adminPassword=""}
   }
 })();
 </script>
