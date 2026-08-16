@@ -3,157 +3,455 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ADMIN — SCT</title>
+<title>ADMIN — CHÚA TỂ SCT</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#080b16;color:#f7f8ff;font-family:Arial,Helvetica,sans-serif}
-.wrap{width:min(1180px,100%);margin:auto;padding:18px}
-h1{margin:0 0 14px;font-size:22px}
-.card{background:#11162a;border:1px solid #2b3553;border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 15px 45px #0006}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-input,button{font:inherit}
-input{width:100%;background:#080c18;border:1px solid #35405f;color:#fff;border-radius:10px;padding:11px;outline:none}
-button{border:0;border-radius:10px;padding:10px 13px;background:linear-gradient(135deg,#ffd45a,#ef6b2b);font-weight:900;color:#190c03;cursor:pointer}
-button.secondary{background:#1a2138;color:#dce2f0;border:1px solid #35405f}
-.status{padding:9px 11px;border-radius:10px;margin-top:8px;font-size:12px}
-.ok{background:#0c2b1e;color:#71f1aa;border:1px solid #235f45}
-.err{background:#34131c;color:#ff8da0;border:1px solid #713142}
-.muted{color:#8c96b2;font-size:12px}
+body{margin:0;background:#100616;color:#fff;font-family:Arial,sans-serif}
+.wrap{max-width:760px;margin:auto;padding:15px}
+h1{color:#ffd34e;text-align:center}
+.card{background:#211027;border:1px solid #71305f;border-radius:14px;padding:14px;margin:10px 0}
+input,button{width:100%;padding:12px;margin:5px 0;border-radius:9px;border:0;font-size:15px}
+input{background:#120812;color:#fff;border:1px solid #714765}
+button{background:#63305e;color:#fff;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(1.2)}
+button:active{transform:translateY(1px)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.status{padding:9px;border-radius:8px;text-align:center;font-size:13px;margin:6px 0}
+.ok{background:#163d20;color:#9affaa}
+.err{background:#45151b;color:#ff9b9b}
+.info{background:#252035;color:#d9c8e1}
+.code{border-top:1px solid #44233e;padding:12px 0}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.actions button{font-size:12px;padding:9px}
+.muted{color:#c7afc5;font-size:12px}
 #app{display:none}
-.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.toolbar input{max-width:330px}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
-.stat{background:#0b1020;border:1px solid #242e4a;border-radius:11px;padding:11px}
-.stat small{display:block;color:#7f89a6;font-size:10px}.stat b{display:block;margin-top:5px;font-size:18px}
-.user-list{overflow:auto;margin-top:12px}
-table{width:100%;border-collapse:collapse;min-width:980px}
-th,td{padding:10px 8px;border-bottom:1px solid #252e48;text-align:left;font-size:11px;white-space:nowrap}
-th{color:#ffd45a;font-size:10px;background:#0d1221;position:sticky;top:0}
-td.num{text-align:right}
-.badge{padding:4px 7px;border-radius:999px;background:#102b20;color:#69edaa}
-.login{max-width:420px;margin:70px auto}
-@media(max-width:700px){.wrap{padding:10px}.summary{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}}
+.eye{position:relative}
+.eye input{padding-right:55px}
+.eye button{position:absolute;right:5px;top:5px;width:auto;padding:8px 10px;background:#39203d}
+.badge{display:inline-block;padding:3px 7px;border-radius:999px;font-size:11px}
+.badge.on{background:#163d20;color:#9affaa}
+.badge.off{background:#45151b;color:#ff9b9b}
+.footer{text-align:center;color:#8d6b87;font-size:12px;padding:18px}
+@media(max-width:480px){
+  .row,.actions{grid-template-columns:1fr}
+  .wrap{padding:9px}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🔐 ADMIN — CHÚA TỂ SCT</h1>
+<h1>🔐 ADMIN — CHÚA TỂ SCT</h1>
 
-  <section class="card login" id="loginCard">
-    <div class="muted">Đăng nhập bằng ADMIN_KEY trong Environment của server.</div>
-    <input id="adminKey" type="password" placeholder="ADMIN_KEY" autocomplete="current-password" style="margin-top:10px">
-    <button id="loginBtn" onclick="adminLogin()" style="width:100%;margin-top:9px">ĐĂNG NHẬP ADMIN</button>
-    <div id="loginMsg"></div>
-  </section>
+<div id="loginCard" class="card">
+  <div id="serverStatus" class="status info">🔄 Đang kiểm tra Render server...</div>
 
-  <main id="app">
-    <section class="card">
-      <div class="toolbar">
-        <b>👥 QUẢN LÝ TÀI KHOẢN</b>
-        <button class="secondary" onclick="loadUsers()">🔄 TẢI LẠI</button>
-        <button class="secondary" onclick="logout()">ĐĂNG XUẤT</button>
-      </div>
-      <div class="toolbar" style="margin-top:10px">
-        <input id="search" placeholder="Tìm theo tên tài khoản..." onkeydown="if(event.key==='Enter')loadUsers()">
-        <button onclick="loadUsers()">🔎 TÌM</button>
-      </div>
-      <div class="summary">
-        <div class="stat"><small>TỔNG TÀI KHOẢN</small><b id="totalUsers">0</b></div>
-        <div class="stat"><small>TỔNG TTT</small><b id="totalTtt">0</b></div>
-        <div class="stat"><small>TỔNG LƯỢT CHƠI</small><b id="totalPlays">0</b></div>
-        <div class="stat"><small>TỔNG ĐÃ THẮNG</small><b id="totalWon">0</b></div>
-      </div>
-      <div id="usersMsg"></div>
-      <div class="user-list" id="usersList"></div>
-    </section>
+  <div class="eye">
+    <input id="pass" type="password" autocomplete="current-password" placeholder="Mật khẩu Admin">
+    <button type="button" onclick="togglePass()">👁️</button>
+  </div>
 
-    <section class="card">
-      <b>🎁 QUẢN LÝ CODE</b>
-      <p class="muted">Phần code hiện tại vẫn dùng các API admin của server.</p>
-      <button onclick="window.open(API_BASE+'/','_blank')">MỞ TRANG ADMIN CODE</button>
-    </section>
-  </main>
+  <button type="button" id="loginBtn" onclick="login()">🔑 ĐĂNG NHẬP ADMIN</button>
+  <div id="loginMsg"></div>
+  <div class="muted">Có thể nhấn Enter trong ô mật khẩu để đăng nhập.</div>
+</div>
+
+<div id="app">
+  <div class="card">
+    <div class="status ok">✅ Đã kết nối Render server</div>
+    <button type="button" onclick="logout()">🚪 ĐĂNG XUẤT</button>
+  </div>
+
+  <div class="card">
+    <h3>➕ Tạo code điểm ảo</h3>
+    <input id="code" maxlength="40" placeholder="Ví dụ: TTT100K">
+    <input id="reward" type="number" min="1" placeholder="Số điểm thưởng">
+    <input id="maxUses" type="number" min="0" value="0" placeholder="Lượt tối đa (0 = không giới hạn)">
+    <input id="expires" type="datetime-local">
+    <button type="button" onclick="createCode()">➕ TẠO CODE</button>
+    <div id="createMsg"></div>
+  </div>
+
+  <div class="card">
+    <h3>📋 Quản lý code</h3>
+    <button type="button" onclick="loadCodes()">🔄 TẢI LẠI DANH SÁCH</button>
+    <div id="list"><div class="muted">Chưa tải danh sách.</div></div>
+  </div>
+</div>
+
+<div class="footer">CHÚA TỂ SCT • ADMIN SYSTEM</div>
 </div>
 
 <script>
-const API_BASE="https://ttt9-9-9-9.onrender.com";
-let adminKey=sessionStorage.getItem("sctAdminKey")||"";
-const $=id=>document.getElementById(id);
-const fmt=n=>Math.floor(Number(n)||0).toLocaleString("vi-VN");
-const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const API_URL = "https://ttt9-9-9-9.onrender.com";
+let adminKey = "";
 
-async function adminFetch(path,opt={}){
-  opt.headers={...(opt.headers||{}),"x-admin-key":adminKey};
-  const r=await fetch(API_BASE+path,opt);
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.error||"Lỗi máy chủ");
-  return d;
-}
-async function adminLogin(){
-  const key=$("adminKey").value.trim();
-  if(!key){$("loginMsg").innerHTML='<div class="status err">Nhập ADMIN_KEY.</div>';return}
-  const btn=$("loginBtn");btn.disabled=true;btn.textContent="ĐANG KIỂM TRA...";
-  try{
-    adminKey=key;
-    const d=await adminFetch("/api/admin/users?search=");
-    sessionStorage.setItem("sctAdminKey",adminKey);
-    $("loginCard").style.display="none";$("app").style.display="block";
-    renderUsers(d.users||[]);
-  }catch(e){
-    $("loginMsg").innerHTML='<div class="status err">❌ '+esc(e.message)+'</div>';
-  }finally{btn.disabled=false;btn.textContent="ĐĂNG NHẬP ADMIN"}
-}
-function renderUsers(users){
-  $("totalUsers").textContent=fmt(users.length);
-  $("totalTtt").textContent=fmt(users.reduce((a,u)=>a+Number(u.ttt||0),0));
-  $("totalPlays").textContent=fmt(users.reduce((a,u)=>a+Number(u.plays||0),0));
-  $("totalWon").textContent=fmt(users.reduce((a,u)=>a+Number(u.total_won||0),0));
+const $ = id => document.getElementById(id);
 
-  if(!users.length){
-    $("usersList").innerHTML='<div class="muted">Không có tài khoản.</div>';return;
-  }
-
-  $("usersList").innerHTML=`<table>
-    <thead><tr>
-      <th>ID</th><th>TÀI KHOẢN</th><th>TTT</th><th>LƯỢT CHƠI</th>
-      <th>THẮNG LỚN</th><th>TỔNG ĐÃ THẮNG</th><th>TẠO LÚC</th>
-      <th>ĐĂNG NHẬP GẦN NHẤT</th><th>PHIÊN ĐANG HOẠT ĐỘNG</th>
-    </tr></thead>
-    <tbody>${users.map(u=>`<tr>
-      <td>${esc(u.id)}</td>
-      <td><b>${esc(u.username)}</b></td>
-      <td class="num">${fmt(u.ttt)}</td>
-      <td class="num">${fmt(u.plays)}</td>
-      <td class="num">${fmt(u.biggest_win)}</td>
-      <td class="num">${fmt(u.total_won)}</td>
-      <td>${formatDate(u.created_at)}</td>
-      <td>${u.last_login_at?formatDate(u.last_login_at):"Chưa đăng nhập"}</td>
-      <td><span class="badge">${fmt(u.active_sessions)}</span></td>
-    </tr>`).join("")}</tbody>
-  </table>`;
+function apiHeaders(extra = {}) {
+  return Object.assign({"x-admin-key": adminKey}, extra);
 }
-function formatDate(v){if(!v)return"-";const d=new Date(v);return Number.isNaN(d.getTime())?"-":d.toLocaleString("vi-VN")}
-async function loadUsers(){
-  try{
-    const q=encodeURIComponent($("search").value.trim());
-    const d=await adminFetch("/api/admin/users?search="+q);
-    renderUsers(d.users||[]);
-    $("usersMsg").innerHTML='<div class="status ok">Đã tải '+fmt(d.total||0)+' tài khoản.</div>';
-  }catch(e){
-    $("usersMsg").innerHTML='<div class="status err">❌ '+esc(e.message)+'</div>';
-    if(/ADMIN_KEY|Sai/i.test(e.message))logout();
+
+async function readJson(response) {
+  return await response.json().catch(() => ({}));
+}
+
+async function checkServer() {
+  try {
+    const r = await fetch(API_URL + "/health", {cache:"no-store"});
+    const d = await readJson(r);
+
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+
+    $("serverStatus").className = "status ok";
+    $("serverStatus").textContent = "🟢 Render server đang hoạt động";
+    return true;
+  } catch (e) {
+    console.error("health:", e);
+    $("serverStatus").className = "status err";
+    $("serverStatus").textContent = "🔴 Không kết nối được Render server";
+    return false;
   }
 }
-function logout(){
-  adminKey="";sessionStorage.removeItem("sctAdminKey");
-  $("app").style.display="none";$("loginCard").style.display="block";$("adminKey").value="";
+
+function togglePass() {
+  $("pass").type = $("pass").type === "password" ? "text" : "password";
 }
-(async()=>{
-  if(!adminKey)return;
-  try{
-    const d=await adminFetch("/api/admin/users?search=");
-    $("loginCard").style.display="none";$("app").style.display="block";renderUsers(d.users||[]);
-  }catch{logout()}
+
+$("pass").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    login();
+  }
+});
+
+async function login() {
+  const key = $("pass").value.trim();
+
+  if (!key) {
+    $("loginMsg").innerHTML =
+      '<div class="status err">❌ Vui lòng nhập ADMIN_KEY.</div>';
+    return;
+  }
+
+  const button = $("loginBtn");
+  button.disabled = true;
+  button.textContent = "⏳ ĐANG KIỂM TRA...";
+
+  try {
+    const r = await fetch(API_URL + "/api/codes", {
+      method: "GET",
+      headers: {"x-admin-key": key},
+      cache: "no-store"
+    });
+
+    const d = await readJson(r);
+
+    if (!r.ok) {
+      $("loginMsg").innerHTML =
+        '<div class="status err">❌ ' +
+        escapeHtml(d.error || "ADMIN_KEY sai hoặc server chưa cấu hình.") +
+        '</div>';
+      return;
+    }
+
+    adminKey = key;
+    sessionStorage.setItem("sctAdminKey", key);
+
+    $("loginCard").style.display = "none";
+    $("app").style.display = "block";
+
+    renderCodes(Array.isArray(d) ? d : (d.codes || []));
+  } catch (e) {
+    console.error(e);
+    $("loginMsg").innerHTML =
+      '<div class="status err">🔴 Không kết nối được Render API.<br><small>' +
+      escapeHtml(e.message) +
+      '</small></div>';
+  } finally {
+    button.disabled = false;
+    button.textContent = "🔑 ĐĂNG NHẬP ADMIN";
+  }
+}
+
+function logout() {
+  adminKey = "";
+  sessionStorage.removeItem("sctAdminKey");
+  $("app").style.display = "none";
+  $("loginCard").style.display = "block";
+  $("pass").value = "";
+  $("loginMsg").innerHTML = "";
+  checkServer();
+}
+
+async function loadCodes() {
+  $("list").innerHTML = '<div class="status info">🔄 Đang tải...</div>';
+
+  try {
+    const r = await fetch(API_URL + "/api/codes", {
+      method: "GET",
+      headers: apiHeaders(),
+      cache: "no-store"
+    });
+
+    const d = await readJson(r);
+
+    if (r.status === 401 || r.status === 403) {
+      logout();
+      $("loginMsg").innerHTML =
+        '<div class="status err">❌ ADMIN_KEY không hợp lệ.</div>';
+      return;
+    }
+
+    if (!r.ok) throw new Error(d.error || "Không tải được danh sách code.");
+
+    renderCodes(Array.isArray(d) ? d : (d.codes || []));
+  } catch (e) {
+    console.error(e);
+    $("list").innerHTML =
+      '<div class="status err">🔴 Không tải được dữ liệu.<br><small>' +
+      escapeHtml(e.message) +
+      '</small></div>';
+  }
+}
+
+async function createCode() {
+  const code = $("code").value.trim().toUpperCase();
+  const reward = Number($("reward").value);
+  const maxUses = Number($("maxUses").value || 0);
+  const expiresAt = $("expires").value
+    ? new Date($("expires").value).toISOString()
+    : null;
+
+  if (!code) {
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Chưa nhập code.</div>';
+    return;
+  }
+
+  if (!Number.isFinite(reward) || reward <= 0) {
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Số điểm thưởng phải lớn hơn 0.</div>';
+    return;
+  }
+
+  if (!Number.isFinite(maxUses) || maxUses < 0) {
+    $("createMsg").innerHTML =
+      '<div class="status err">❌ Số lượt sử dụng không hợp lệ.</div>';
+    return;
+  }
+
+  try {
+    const r = await fetch(API_URL + "/api/codes", {
+      method: "POST",
+      headers: apiHeaders({"Content-Type":"application/json"}),
+      body: JSON.stringify({
+        code,
+        reward,
+        maxUses,
+        expiresAt
+      })
+    });
+
+    const d = await readJson(r);
+
+    if (!r.ok || d.ok === false) {
+      throw new Error(d.error || "Không tạo được code.");
+    }
+
+    $("createMsg").innerHTML =
+      '<div class="status ok">✅ Đã tạo code ' +
+      escapeHtml(code) +
+      ' — +' + reward.toLocaleString("vi-VN") +
+      ' TTT</div>';
+
+    $("code").value = "";
+    $("reward").value = "";
+    $("maxUses").value = "0";
+    $("expires").value = "";
+
+    await loadCodes();
+  } catch (e) {
+    console.error(e);
+    $("createMsg").innerHTML =
+      '<div class="status err">🔴 ' +
+      escapeHtml(e.message) +
+      '</div>';
+  }
+}
+
+function renderCodes(arr) {
+  if (!Array.isArray(arr) || !arr.length) {
+    $("list").innerHTML =
+      '<div class="muted">Chưa có code nào.</div>';
+    return;
+  }
+
+  $("list").innerHTML = arr.map(x => {
+    const code = String(x.code || "");
+    const reward = Number(x.reward || 0);
+
+    const used = Number(
+      x.usedCount ?? x.used ?? x.uses ?? 0
+    );
+
+    const max = Number(
+      x.maxUses ?? x.max_uses ?? 0
+    );
+
+    const expiresValue =
+      x.expiresAt ?? x.expires_at ?? null;
+
+    const exp = expiresValue
+      ? new Date(expiresValue).toLocaleString("vi-VN")
+      : "Không hết hạn";
+
+    const active =
+      x.active !== false &&
+      x.active !== 0 &&
+      x.active !== "false";
+
+    return `
+      <div class="code">
+        <b>🎁 ${escapeHtml(code)}</b><br>
+        💰 +${reward.toLocaleString("vi-VN")} TTT<br>
+        🔢 ${used}/${max || "∞"} lượt<br>
+        📅 ${escapeHtml(exp)}<br>
+        <span class="badge ${active ? "on" : "off"}">
+          ${active ? "🟢 ĐANG BẬT" : "🔴 ĐÃ TẮT"}
+        </span>
+
+        <div class="actions">
+          <button onclick="toggleCode('${esc(code)}',${!active})">
+            ${active ? "TẮT" : "BẬT"}
+          </button>
+          <button onclick="resetCode('${esc(code)}')">
+            RESET
+          </button>
+          <button onclick="deleteCode('${esc(code)}')">
+            XÓA
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function toggleCode(code, active) {
+  try {
+    const r = await fetch(
+      API_URL + "/api/codes/" + encodeURIComponent(code),
+      {
+        method: "PATCH",
+        headers: apiHeaders({"Content-Type":"application/json"}),
+        body: JSON.stringify({active})
+      }
+    );
+
+    const d = await readJson(r);
+
+    if (!r.ok) {
+      throw new Error(d.error || "Không cập nhật được code.");
+    }
+
+    await loadCodes();
+  } catch (e) {
+    alert("Không cập nhật được code:\n" + e.message);
+  }
+}
+
+async function resetCode(code) {
+  if (!confirm("Reset toàn bộ lượt sử dụng của code " + code + "?"))
+    return;
+
+  try {
+    const r = await fetch(
+      API_URL + "/api/codes/" + encodeURIComponent(code),
+      {
+        method: "PATCH",
+        headers: apiHeaders({"Content-Type":"application/json"}),
+        body: JSON.stringify({resetUses:true})
+      }
+    );
+
+    const d = await readJson(r);
+
+    if (!r.ok) {
+      throw new Error(d.error || "Không reset được code.");
+    }
+
+    await loadCodes();
+  } catch (e) {
+    alert("Không reset được:\n" + e.message);
+  }
+}
+
+async function deleteCode(code) {
+  if (!confirm("XÓA VĨNH VIỄN code " + code + "?"))
+    return;
+
+  try {
+    const r = await fetch(
+      API_URL + "/api/codes/" + encodeURIComponent(code),
+      {
+        method: "DELETE",
+        headers: apiHeaders()
+      }
+    );
+
+    const d = await readJson(r);
+
+    if (!r.ok) {
+      throw new Error(d.error || "Không xóa được code.");
+    }
+
+    await loadCodes();
+  } catch (e) {
+    alert("Không xóa được:\n" + e.message);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[m]));
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+}
+
+(async function init() {
+  await checkServer();
+
+  const saved = sessionStorage.getItem("sctAdminKey");
+  if (!saved) return;
+
+  try {
+    const r = await fetch(API_URL + "/api/codes", {
+      headers: {"x-admin-key": saved},
+      cache: "no-store"
+    });
+
+    const d = await readJson(r);
+
+    if (r.ok) {
+      adminKey = saved;
+      $("pass").value = saved;
+      $("loginCard").style.display = "none";
+      $("app").style.display = "block";
+      renderCodes(Array.isArray(d) ? d : (d.codes || []));
+    } else {
+      sessionStorage.removeItem("sctAdminKey");
+    }
+  } catch (e) {
+    console.error("restore:", e);
+  }
 })();
 </script>
 </body>
